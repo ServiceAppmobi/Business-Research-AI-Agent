@@ -84,8 +84,8 @@ def find_business_leads(request):
             research_method="No live company sources retrieved; no leads were fabricated.",
             disclaimer="This is not a verified lead list. Configure Tavily and retry; validate each company before outreach.",
         )
-    source_context = "\\n".join(
-        f"[S{i}] {s['title']} | {s['url']}\\n{s['snippet']}"
+    source_context = "\n".join(
+        f"[S{i}] {s['title']} | {s['url']}\n{s['snippet']}"
         for i, s in enumerate(sources, 1)
     )
     language_name = SUPPORTED_LANGUAGES[request.language]
