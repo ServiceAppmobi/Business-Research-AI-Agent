@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 import sqlite3
 from pathlib import Path
@@ -11,6 +13,9 @@ def _connect():
     conn.row_factory = sqlite3.Row
     return conn
 
+def hash_access_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
 def init_db():
     with _connect() as conn:
         conn.execute("""
@@ -21,17 +26,32 @@ def init_db():
             stripe_session_id TEXT UNIQUE,
             status TEXT NOT NULL DEFAULT 'pending_payment',
             report_json TEXT,
+            access_token_hash TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """)
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(research_orders)")}
+        if "access_token_hash" not in columns:
+            conn.execute("ALTER TABLE research_orders ADD COLUMN access_token_hash TEXT")
 
-def create_order(order_id: str, email: str, request_data: dict[str, Any]):
+def create_order(order_id: str, email: str, request_data: dict[str, Any], access_token_hash: str):
     with _connect() as conn:
         conn.execute(
-            "INSERT INTO research_orders (id, customer_email, request_json) VALUES (?, ?, ?)",
-            (order_id, email, json.dumps(request_data, ensure_ascii=False)),
+            "INSERT INTO research_orders (id, customer_email, request_json, access_token_hash) VALUES (?, ?, ?, ?)",
+            (order_id, email, json.dumps(request_data, ensure_ascii=False), access_token_hash),
         )
+
+def verify_order_access(order_id: str, token: str) -> bool:
+    if not token:
+        return False
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT access_token_hash FROM research_orders WHERE id=?",
+            (order_id,),
+        ).fetchone()
+    stored_hash = row["access_token_hash"] if row else None
+    return bool(stored_hash and hmac.compare_digest(stored_hash, hash_access_token(token)))
 
 def attach_checkout(order_id: str, session_id: str):
     with _connect() as conn:
