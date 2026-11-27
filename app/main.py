@@ -1,5 +1,6 @@
 import asyncio
 import json
+import secrets
 import uuid
 from io import BytesIO
 from xml.sax.saxutils import escape
@@ -14,7 +15,7 @@ from app.agent import generate_report, find_business_leads
 from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event
 from app.schemas import CheckoutRequest, CheckoutResponse, ResearchRequest, ResearchReport, LeadFinderRequest, LeadFinderResponse
-from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed
+from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed, hash_access_token, verify_order_access
 
 app = FastAPI(title="AI Business Research Agent", description="Multilingual AI-assisted business research reports with Stripe Checkout.", version="0.2.0")
 
@@ -58,11 +59,12 @@ def checkout(payload: CheckoutRequest):
     if payload.research.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language code")
     order_id = str(uuid.uuid4())
-    create_order(order_id, str(payload.customer_email), payload.research.model_dump())
+    access_token = secrets.token_urlsafe(32)
+    create_order(order_id, str(payload.customer_email), payload.research.model_dump(), hash_access_token(access_token))
     try:
         session = create_checkout_session(order_id, str(payload.customer_email))
         attach_checkout(order_id, session.id)
-        return CheckoutResponse(order_id=order_id, checkout_url=session.url)
+        return CheckoutResponse(order_id=order_id, checkout_url=session.url, access_token=access_token)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception:
@@ -110,8 +112,14 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(defaul
         raise HTTPException(status_code=500, detail="Paid order report generation failed; retry webhook")
     return {"status": "completed", "order_id": order_id}
 
+def _require_order_access(order_id: str, authorization: str):
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not verify_order_access(order_id, token.strip()):
+        raise HTTPException(status_code=401, detail="A valid order access token is required", headers={"WWW-Authenticate": "Bearer"})
+
 @app.get("/api/v1/orders/{order_id}")
-def order_status(order_id: str):
+def order_status(order_id: str, authorization: str = Header(default="")):
+    _require_order_access(order_id, authorization)
     order = get_order(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -125,12 +133,10 @@ def payment_success(order_id: str):
     order = get_order(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    status = order["status"]
-    return f"""<!doctype html><html><head><meta charset="utf-8"><title>Payment received</title></head>
+    return """<!doctype html><html><head><meta charset="utf-8"><title>Payment received</title></head>
     <body style="font-family:system-ui;max-width:680px;margin:60px auto;padding:24px">
     <h1>Payment received</h1><p>Your research report is being prepared.</p>
-    <p>Order status: <strong>{status}</strong></p>
-    <p>Check your report status at <code>/api/v1/orders/{order_id}</code>.</p>
+    <p>Return to the app or browser session where you started checkout to access your secure order link.</p>
     </body></html>"""
 
 @app.get("/payment/cancel", response_class=HTMLResponse)
@@ -141,7 +147,8 @@ def payment_cancel():
     </body></html>"""
 
 @app.get("/api/v1/orders/{order_id}/report.pdf")
-def download_report_pdf(order_id: str):
+def download_report_pdf(order_id: str, authorization: str = Header(default="")):
+    _require_order_access(order_id, authorization)
     order = get_order(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
