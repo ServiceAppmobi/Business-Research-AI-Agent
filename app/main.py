@@ -4,7 +4,7 @@ import secrets
 import uuid
 from io import BytesIO
 from xml.sax.saxutils import escape
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request, Query
 from fastapi.responses import HTMLResponse, StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -19,7 +19,7 @@ from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event, REPORT_PLANS
 from app.schemas import CheckoutRequest, CheckoutResponse, ResearchRequest, ResearchReport, LeadFinderRequest, LeadFinderResponse
 from app.portal import CUSTOMER_PORTAL_HTML
-from app.email import email_is_configured, send_order_access_email, send_report_ready_email
+from app.email import email_is_configured, send_order_access_email, send_report_ready_email, send_test_email
 from app.config import settings
 from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed, hash_access_token, verify_order_access, claim_stripe_event, complete_stripe_event, fail_stripe_event
 
@@ -39,6 +39,18 @@ def _require_direct_ai_api_enabled():
             status_code=403,
             detail="Direct AI endpoints are disabled. Use the paid checkout workflow.",
         )
+
+
+@app.get("/internal/test-email")
+@limiter.limit("1/minute")
+def internal_test_email(request: Request, token: str = Query(default="")):
+    if not settings.email_test_token or not secrets.compare_digest(token, settings.email_test_token):
+        raise HTTPException(status_code=404, detail="Not found")
+    if not email_is_configured():
+        raise HTTPException(status_code=503, detail="Transactional email is not configured")
+    if not send_test_email("reports@serviceapp.mobi"):
+        raise HTTPException(status_code=502, detail="Resend rejected or could not deliver the test email")
+    return {"status": "sent", "recipient": "reports@serviceapp.mobi", "provider": "Resend"}
 
 
 @app.get("/portal", response_class=HTMLResponse)
