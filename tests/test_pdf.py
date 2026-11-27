@@ -6,8 +6,9 @@ from app import main
 client = TestClient(app)
 
 def test_pdf_endpoint_returns_404_for_unknown_order(monkeypatch):
+    monkeypatch.setattr(main, "verify_order_access", lambda order_id, token: token == "test-token")
     monkeypatch.setattr(main, "get_order", lambda order_id: None)
-    response = client.get("/api/v1/orders/missing/report.pdf")
+    response = client.get("/api/v1/orders/missing/report.pdf", headers={"Authorization": "Bearer test-token"})
     assert response.status_code == 404
 
 def test_pdf_endpoint_returns_pdf_for_completed_order(monkeypatch):
@@ -24,11 +25,12 @@ def test_pdf_endpoint_returns_pdf_for_completed_order(monkeypatch):
         "research_method": "Test fixture",
         "disclaimer": "For information only",
     }
+    monkeypatch.setattr(main, "verify_order_access", lambda order_id, token: token == "test-token")
     monkeypatch.setattr(main, "get_order", lambda order_id: {
         "status": "completed",
         "report_json": json.dumps(report),
     })
-    response = client.get("/api/v1/orders/test-order/report.pdf")
+    response = client.get("/api/v1/orders/test-order/report.pdf", headers={"Authorization": "Bearer test-token"})
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
     assert response.content.startswith(b"%PDF")
