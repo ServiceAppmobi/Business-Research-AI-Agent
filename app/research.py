@@ -19,7 +19,7 @@ def search_web(company: str, industry: str, target_market: str, research_goal: s
             headers={"Authorization": f"Bearer {settings.tavily_api_key}"},
             json={
                 "query": query,
-                "search_depth": "advanced",
+                "search_depth": "basic",
                 "topic": "general",
                 "max_results": 5,
                 "chunks_per_source": 2,
