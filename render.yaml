@@ -13,6 +13,8 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
+      - key: TAVILY_API_KEY
+        sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
