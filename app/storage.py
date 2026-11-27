@@ -73,7 +73,7 @@ def claim_generation(order_id: str) -> bool:
 def mark_failed(order_id: str):
     with _connect() as conn:
         conn.execute(
-            """UPDATE research_orders SET status='generation_failed', updated_at=CURRENT_TIMESTAMP
+            """UPDATE research_orders SET status='paid', updated_at=CURRENT_TIMESTAMP
                WHERE id=? AND status='generating'""",
             (order_id,),
         )
