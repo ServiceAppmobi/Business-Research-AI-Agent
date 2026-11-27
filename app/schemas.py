@@ -18,6 +18,11 @@ class CheckoutResponse(BaseModel):
     order_id: str
     checkout_url: str
 
+class SourceReference(BaseModel):
+    title: str
+    url: str
+    snippet: str = ""
+
 class ResearchReport(BaseModel):
     executive_summary: str
     market_overview: str
@@ -27,4 +32,6 @@ class ResearchReport(BaseModel):
     competitor_landscape: list[str]
     recommended_next_steps: list[str]
     assumptions_and_limitations: list[str]
+    citations: list[SourceReference] = []
+    research_method: str
     disclaimer: str
