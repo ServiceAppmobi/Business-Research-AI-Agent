@@ -1,7 +1,13 @@
 import stripe
 from app.config import settings
 
-def create_checkout_session(order_id: str, customer_email: str):
+REPORT_PLANS = {
+    "basic": {"name": "Basic Business Research Report", "price_minor": 4900, "description": "Essential market overview, customer segments, opportunities, risks and key competitors."},
+    "professional": {"name": "Professional Business Research Report", "price_minor": 9900, "description": "Detailed market analysis, 5–10 competitor comparison, positioning, SWOT and strategic recommendations."},
+    "premium": {"name": "Premium Business Intelligence Report", "price_minor": 19900, "description": "Extended market and competitor intelligence, market-entry opportunities, pricing strategy and 90-day action plan."},
+}
+
+def create_checkout_session(order_id: str, customer_email: str, plan: str = "professional"):
     if not settings.stripe_secret_key:
         raise RuntimeError("STRIPE_SECRET_KEY is not configured")
     client = stripe.StripeClient(settings.stripe_secret_key)
@@ -12,15 +18,15 @@ def create_checkout_session(order_id: str, customer_email: str):
         "line_items": [{
             "price_data": {
                 "currency": settings.product_currency,
-                "unit_amount": settings.research_report_price_minor,
+                "unit_amount": REPORT_PLANS[plan]["price_minor"],
                 "product_data": {
-                    "name": "AI Business Research Report",
-                    "description": "Multilingual AI-assisted business research report",
+                    "name": REPORT_PLANS[plan]["name"],
+                    "description": REPORT_PLANS[plan]["description"],
                 },
             },
             "quantity": 1,
         }],
-        "metadata": {"order_id": order_id},
+        "metadata": {"order_id": order_id, "report_plan": plan},
         "success_url": f"{settings.app_base_url}/payment/success?order_id={order_id}",
         "cancel_url": f"{settings.app_base_url}/payment/cancel",
     }
