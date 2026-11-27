@@ -9,7 +9,7 @@ Multilingual business research reports powered by Google Gemini, Tavily web rese
 - Tavily web search using five targeted queries and up to 15 deduplicated source records
 - Gemini synthesis with source IDs, uncertainty handling, and separation of facts from assumptions
 - B2B Lead Finder using public company-level web sources
-- Stripe Checkout for one-time report purchases
+- Stripe Checkout for one-time report purchases with three report tiers: Basic PLN 49, Professional PLN 99, Premium PLN 199
 - Signed Stripe webhook handling with persistent event-ID idempotency and retry recovery
 - SQLite order persistence and report status tracking
 - PDF report generation and download
@@ -35,7 +35,7 @@ Lead Finder returns research candidates based on public company-level snippets. 
 - `RESEND_API_KEY`: optional Resend API key for transactional email
 - `EMAIL_FROM`: verified sender identity configured in Resend
 - `PRODUCT_CURRENCY`: defaults to `pln`
-- `RESEARCH_REPORT_PRICE_MINOR`: defaults to `4900` (PLN 49.00)
+- Report pricing is defined in `app/payments.py`: Basic PLN 49, Professional PLN 99, Premium PLN 199. Checkout accepts `plan` (`basic`, `professional`, or `premium`); omitted plan defaults to Professional.
 - `APP_BASE_URL`: public HTTPS origin of this app
 - `DATABASE_PATH`: SQLite database path
 
@@ -64,6 +64,7 @@ Open http://127.0.0.1:8000/docs.
 ### API abuse protection
 
 SlowAPI applies per-client-IP limits: 5 requests/minute for direct research, 5/minute for Lead Finder, and 10/minute for Checkout. Other routes inherit a default ceiling of 120 requests/minute. Limits are in-memory per app instance; use a shared Redis-backed limiter before scaling to multiple instances.
+- `GET /api/v1/pricing` — returns the three available report packages and prices in PLN
 - `GET /api/v1/languages`
 - `POST /api/v1/research` — direct development endpoint
 - `POST /api/v1/leads/find` — company-level B2B lead discovery; request fields: `industry`, `target_market`, `ideal_customer`, `language`, `max_results`
