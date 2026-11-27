@@ -1,11 +1,13 @@
 from fastapi.testclient import TestClient
 from app.main import app
+from app.config import settings
 from app import research
 
 client = TestClient(app)
 
 
-def test_lead_finder_rejects_unsupported_language():
+def test_lead_finder_rejects_unsupported_language(monkeypatch):
+    monkeypatch.setattr(settings, "allow_direct_ai_api", True)
     response = client.post("/api/v1/leads/find", json={
         "industry": "Software",
         "target_market": "Spain",
