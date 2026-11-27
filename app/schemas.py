@@ -13,6 +13,7 @@ class ResearchRequest(BaseModel):
 class CheckoutRequest(BaseModel):
     customer_email: EmailStr
     research: ResearchRequest
+    plan: str = Field(default="professional", pattern="^(basic|professional|premium)$")
 
 class CheckoutResponse(BaseModel):
     order_id: str
