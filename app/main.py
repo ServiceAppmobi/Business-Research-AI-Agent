@@ -1,8 +1,15 @@
 import asyncio
 import json
 import uuid
+from io import BytesIO
+from xml.sax.saxutils import escape
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from app.agent import generate_report
 from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event
@@ -120,3 +127,62 @@ def payment_cancel():
     <body style="font-family:system-ui;max-width:680px;margin:60px auto;padding:24px">
     <h1>Payment cancelled</h1><p>No payment was taken. You can return and try again.</p>
     </body></html>"""
+
+@app.get("/api/v1/orders/{order_id}/report.pdf")
+def download_report_pdf(order_id: str):
+    order = get_order(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order["status"] != "completed" or not order["report_json"]:
+        raise HTTPException(status_code=409, detail="Report is not ready yet")
+
+    report = json.loads(order["report_json"])
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4, rightMargin=18*mm, leftMargin=18*mm,
+        topMargin=18*mm, bottomMargin=18*mm, title="AI Business Research Report"
+    )
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="SectionHeading", parent=styles["Heading2"], spaceBefore=12, spaceAfter=6))
+    story = [Paragraph("AI Business Research Report", styles["Title"]), Spacer(1, 8)]
+    sections = [
+        ("Executive Summary", "executive_summary"),
+        ("Market Overview", "market_overview"),
+        ("Target Customers", "target_customers"),
+        ("Opportunities", "opportunities"),
+        ("Risks", "risks"),
+        ("Competitor Landscape", "competitor_landscape"),
+        ("Recommended Next Steps", "recommended_next_steps"),
+        ("Assumptions and Limitations", "assumptions_and_limitations"),
+    ]
+    for heading, key in sections:
+        value = report.get(key, "")
+        if not value:
+            continue
+        story.append(Paragraph(escape(heading), styles["SectionHeading"]))
+        if isinstance(value, list):
+            for item in value:
+                story.append(Paragraph("• " + escape(str(item)), styles["BodyText"]))
+                story.append(Spacer(1, 3))
+        else:
+            story.append(Paragraph(escape(str(value)).replace("\\n", "<br/>"), styles["BodyText"]))
+    citations = report.get("citations", [])
+    if citations:
+        story.append(Paragraph("Sources", styles["SectionHeading"]))
+        for index, source in enumerate(citations, start=1):
+            title = escape(str(source.get("title", "Source")))
+            url = escape(str(source.get("url", "")))
+            snippet = escape(str(source.get("snippet", "")))
+            story.append(Paragraph(f"[S{index}] <link href=\"{url}\" color=\"blue\">{title}</link>", styles["BodyText"]))
+            if snippet:
+                story.append(Paragraph(snippet, styles["Italic"]))
+            story.append(Spacer(1, 5))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(escape(str(report.get("research_method", ""))), styles["Italic"]))
+    story.append(Paragraph(escape(str(report.get("disclaimer", ""))), styles["Italic"]))
+    doc.build(story)
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="business-research-{order_id}.pdf"'}
+    )
