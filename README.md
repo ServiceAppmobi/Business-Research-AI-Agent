@@ -7,7 +7,7 @@ Multilingual business research report API powered by Google Gemini, with live we
 - 11 output languages
 - Tavily web search (four targeted queries, up to 15 deduplicated source records)
 - Gemini synthesis with source IDs and explicit uncertainty instructions
-- Source references attached to every report
+- Source references attached to every report\n- B2B Lead Finder endpoint using company-level public web sources\n- Lead qualification with fit rationale, public signals, and source URLs (no personal contact harvesting)
 - Stripe Checkout one-time payment endpoint
 - Signed Stripe webhook handling
 - SQLite order persistence and report status endpoint
@@ -45,7 +45,7 @@ Open http://127.0.0.1:8000/docs.
 ## API
 - GET /health
 - GET /api/v1/languages
-- POST /api/v1/research (direct development endpoint)
+- POST /api/v1/research (direct development endpoint)\n- POST /api/v1/leads/find (company-level B2B lead discovery; request: industry, target_market, ideal_customer, language, max_results)
 - POST /api/v1/checkout (creates a paid order and returns the Stripe Checkout URL)
 - POST /webhook/stripe (Stripe webhook receiver)
 - GET /api/v1/orders/{order_id} (checks order status and returns the report when complete)
@@ -56,7 +56,7 @@ The Render blueprint uses a persistent disk mounted at /var/data for SQLite orde
 
 Create a new Stripe webhook endpoint pointing to https://YOUR_HOST/webhook/stripe and subscribe to checkout.session.completed, checkout.session.async_payment_succeeded, and checkout.session.async_payment_failed.
 
-## Before public launch
+## Lead Finder limitations\nLead Finder returns research candidates based on public company-level snippets. It does not verify buying intent, guarantee contactability, or collect personal email addresses or phone numbers. Validate each company and use its official public contact route before outreach.\n\n## Before public launch
 - Add automated tests for payment, webhook idempotency, search failures, and malformed model output.
 - Add customer authentication and rate limiting to order/report retrieval.
 - Add PDF export and email delivery.
