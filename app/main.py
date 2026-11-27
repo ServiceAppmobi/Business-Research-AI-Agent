@@ -16,7 +16,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from app.agent import generate_report, find_business_leads
 from app.languages import SUPPORTED_LANGUAGES
-from app.payments import create_checkout_session, construct_webhook_event
+from app.payments import create_checkout_session, construct_webhook_event, REPORT_PLANS
 from app.schemas import CheckoutRequest, CheckoutResponse, ResearchRequest, ResearchReport, LeadFinderRequest, LeadFinderResponse
 from app.portal import CUSTOMER_PORTAL_HTML
 from app.email import send_order_access_email, send_report_ready_email
@@ -39,6 +39,16 @@ def customer_portal():
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "ai-business-research-agent"}
+
+@app.get("/api/v1/pricing")
+def pricing():
+    return {
+        "currency": "PLN",
+        "plans": [
+            {"id": plan_id, "name": details["name"], "price": details["price_minor"] / 100, "currency": "PLN", "description": details["description"]}
+            for plan_id, details in REPORT_PLANS.items()
+        ],
+    }
 
 @app.get("/api/v1/languages")
 def languages():
@@ -76,9 +86,11 @@ def checkout(request: Request, payload: CheckoutRequest):
         raise HTTPException(status_code=400, detail="Unsupported language code")
     order_id = str(uuid.uuid4())
     access_token = secrets.token_urlsafe(32)
-    create_order(order_id, str(payload.customer_email), payload.research.model_dump(), hash_access_token(access_token))
+    order_data = payload.research.model_dump()
+    order_data["_report_plan"] = payload.plan
+    create_order(order_id, str(payload.customer_email), order_data, hash_access_token(access_token))
     try:
-        session = create_checkout_session(order_id, str(payload.customer_email))
+        session = create_checkout_session(order_id, str(payload.customer_email), payload.plan)
         attach_checkout(order_id, session.id)
         send_order_access_email(str(payload.customer_email), order_id, access_token)
         return CheckoutResponse(order_id=order_id, checkout_url=session.url, access_token=access_token)
@@ -134,9 +146,13 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(defaul
         return {"status": "already_processed"}
 
     try:
-        research_request = ResearchRequest.model_validate(json.loads(order["request_json"]))
-        report = await asyncio.to_thread(generate_report, research_request)
-        save_report(order_id, report.model_dump())
+        stored_request = json.loads(order["request_json"])
+        report_plan = stored_request.pop("_report_plan", "professional")
+        research_request = ResearchRequest.model_validate(stored_request)
+        report = await asyncio.to_thread(generate_report, research_request, report_plan)
+        report_data = report.model_dump()
+        report_data["report_tier"] = report_plan
+        save_report(order_id, report_data)
         send_report_ready_email(order["customer_email"], order_id)
     except Exception:
         mark_failed(order_id)
