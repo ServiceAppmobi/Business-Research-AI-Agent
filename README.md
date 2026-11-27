@@ -15,6 +15,7 @@ Multilingual business research reports powered by Google Gemini, Tavily web rese
 - PDF report generation and download
 - Per-order bearer access tokens; only a SHA-256 token hash is stored in SQLite
 - Customer portal at `/portal` for order status, report preview, and PDF download
+- IP-based rate limits on public API endpoints (research: 5/min, lead finder: 5/min, checkout: 10/min; global default: 120/min)
 - Optional transactional email delivery through Resend: secure order credentials after checkout and report-ready notification
 
 ## Research quality and limitations
@@ -59,6 +60,10 @@ Open http://127.0.0.1:8000/docs.
 ## API
 
 - `GET /health`
+
+### API abuse protection
+
+SlowAPI applies per-client-IP limits: 5 requests/minute for direct research, 5/minute for Lead Finder, and 10/minute for Checkout. Other routes inherit a default ceiling of 120 requests/minute. Limits are in-memory per app instance; use a shared Redis-backed limiter before scaling to multiple instances.
 - `GET /api/v1/languages`
 - `POST /api/v1/research` — direct development endpoint
 - `POST /api/v1/leads/find` — company-level B2B lead discovery; request fields: `industry`, `target_market`, `ideal_customer`, `language`, `max_results`
