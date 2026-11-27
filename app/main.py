@@ -1,7 +1,7 @@
 import asyncio
 import json
 import uuid
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request\nfrom fastapi.responses import HTMLResponse
 from app.agent import generate_report
 from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event
@@ -94,3 +94,15 @@ def order_status(order_id: str):
     if order["status"] == "completed" and order["report_json"]:
         result["report"] = json.loads(order["report_json"])
     return result
+
+@app.get("/payment/success", response_class=HTMLResponse)
+def payment_success(order_id: str):
+    order = get_order(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return f"""<!doctype html><html><head><meta charset="utf-8"><title>Payment received</title></head>
+    <body style="font-family:system-ui;max-width:680px;margin:60px auto;padding:24px">
+    <h1>Payment received</h1><p>Your research report is being prepared.</p>
+    <p>Order status: <strong>{order["status"]}</strong></p>
+    <p>Check your report status at <code>/api/v1/orders/{order_id}</code>.</p>
+    </body></html>"""
