@@ -5,7 +5,7 @@ from app.languages import SUPPORTED_LANGUAGES
 from app.schemas import ResearchRequest, ResearchReport
 from app.research import search_web
 
-def generate_report(request: ResearchRequest) -> ResearchReport:
+def generate_report(request: ResearchRequest, plan: str = "professional") -> ResearchReport:
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY is not configured")
 
@@ -37,6 +37,12 @@ Target market: {request.target_market}
 Research goal: {request.research_goal}
 Include competitor landscape: {request.include_competitors}
 Additional context: {request.additional_context or "None"}
+Purchased report tier: {plan}
+
+TIER-SPECIFIC DEPTH:
+- basic: concise decision-support report; cover the required sections clearly, prioritize essential facts and key competitors, and avoid claiming deep competitor benchmarking or a 90-day implementation plan.
+- professional: provide a detailed market assessment, compare up to 5–10 relevant competitors where sources support it, explain positioning and differentiators, include a practical SWOT analysis within opportunities and risks, and give prioritized strategic recommendations.
+- premium: provide the deepest available analysis; segment the market, assess market-entry opportunities and barriers, compare competitors and pricing where credible public evidence exists, propose a pricing/positioning strategy, and include a practical 90-day action plan in recommended_next_steps. Be explicit where evidence is unavailable. Never fabricate competitor counts, prices, or market statistics.
 
 LIVE WEB RESEARCH SOURCES:
 {source_context}
