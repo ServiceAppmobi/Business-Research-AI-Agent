@@ -5,12 +5,12 @@ Multilingual business research report API powered by Google Gemini, with live we
 ## Current features
 - FastAPI API and health endpoint
 - 11 output languages
-- Tavily web search (four targeted queries, up to 15 deduplicated source records)
+- Tavily web search (five targeted queries, up to 15 deduplicated source records)
 - Gemini synthesis with source IDs and explicit uncertainty instructions
 - Source references attached to every report\n- B2B Lead Finder endpoint using company-level public web sources\n- Lead qualification with fit rationale, public signals, and source URLs (no personal contact harvesting)
 - Stripe Checkout one-time payment endpoint
 - Signed Stripe webhook handling
-- SQLite order persistence and report status endpoint
+- SQLite order persistence and report status endpoint\n- PDF report download endpoint
 
 ## Research quality and limitations
 Web retrieval uses Tavily search snippets, not full independent source audits. Search snippets are untrusted input and are treated as reference data, not instructions. The model is asked to cite retrieved source IDs and distinguish facts from assumptions, but AI-generated interpretation can still be wrong. Review high-impact claims and verify primary sources before relying on them commercially.
