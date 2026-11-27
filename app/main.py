@@ -1,7 +1,8 @@
 import asyncio
 import json
 import uuid
-from fastapi import FastAPI, Header, HTTPException, Request\nfrom fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from app.agent import generate_report
 from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event
