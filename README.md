@@ -34,6 +34,7 @@ Lead Finder returns research candidates based on public company-level snippets. 
 - `STRIPE_WEBHOOK_SECRET`: signing secret for this app's Stripe webhook endpoint
 - `RESEND_API_KEY`: optional Resend API key for transactional email
 - `EMAIL_FROM`: verified sender identity configured in Resend
+- `ALLOW_DIRECT_AI_API`: defaults to `false`; set to `true` only for intentional, separately monitored direct AI API access. When false, `/api/v1/research` and `/api/v1/leads/find` return HTTP 403 to prevent unbilled Gemini/Tavily usage.
 - `PRODUCT_CURRENCY`: defaults to `pln`
 - Report pricing is defined in `app/payments.py`: Basic PLN 49, Professional PLN 99, Premium PLN 199. Checkout accepts `plan` (`basic`, `professional`, or `premium`); omitted plan defaults to Professional.
 - `APP_BASE_URL`: public HTTPS origin of this app
@@ -66,8 +67,8 @@ Open http://127.0.0.1:8000/docs.
 SlowAPI applies per-client-IP limits: 5 requests/minute for direct research, 5/minute for Lead Finder, and 10/minute for Checkout. Other routes inherit a default ceiling of 120 requests/minute. Limits are in-memory per app instance; use a shared Redis-backed limiter before scaling to multiple instances.
 - `GET /api/v1/pricing` — returns the three available report packages and prices in PLN
 - `GET /api/v1/languages`
-- `POST /api/v1/research` — direct development endpoint
-- `POST /api/v1/leads/find` — company-level B2B lead discovery; request fields: `industry`, `target_market`, `ideal_customer`, `language`, `max_results`
+- `POST /api/v1/research` — direct development endpoint; disabled by default unless `ALLOW_DIRECT_AI_API=true`
+- `POST /api/v1/leads/find` — company-level B2B lead discovery; disabled by default unless `ALLOW_DIRECT_AI_API=true`; request fields: `industry`, `target_market`, `ideal_customer`, `language`, `max_results`
 - `POST /api/v1/checkout` — creates a Stripe Checkout session and returns `order_id`, `checkout_url`, and a one-time `access_token`
 - `POST /webhook/stripe` — Stripe webhook receiver
 - `GET /api/v1/orders/{order_id}` — returns order status and the report when complete; requires `Authorization: Bearer <access_token>`
@@ -76,7 +77,7 @@ SlowAPI applies per-client-IP limits: 5 requests/minute for direct research, 5/m
 
 ### Protecting customer reports
 
-The checkout response includes a cryptographically random access token exactly once. The client must store it securely and send it in the HTTP Authorization header when requesting order status or the PDF. The server stores only its SHA-256 hash. Do not put this token in a public URL, analytics event, browser log, or support ticket.
+Checkout is enabled only when both `RESEND_API_KEY` and `EMAIL_FROM` are configured and the order-access email is successfully delivered. This prevents a customer from paying without receiving their secure portal credentials. The checkout response also includes a cryptographically random access token exactly once. The client must store it securely and send it in the HTTP Authorization header when requesting order status or the PDF. The server stores only its SHA-256 hash. Do not put this token in a public URL, analytics event, browser log, or support ticket.
 
 The payment success page intentionally does not reveal order status or report contents. Customers can use `/portal` with their order reference and access token. When Resend is configured, the checkout flow emails the access details and successful report generation sends a ready notification. The access token is sent only in the email body, never in a URL. If Resend is not configured or email delivery fails, checkout and report generation continue; the checkout API still returns the access token to the client.
 
