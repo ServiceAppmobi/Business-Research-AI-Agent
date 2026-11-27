@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: ai-business-research-agent
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    disk:
+      name: research-orders
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: PRODUCT_CURRENCY
+        value: pln
+      - key: RESEARCH_REPORT_PRICE_MINOR
+        value: "4900"
+      - key: APP_BASE_URL
+        sync: false
+      - key: DATABASE_PATH
+        value: /var/data/research_orders.sqlite3
