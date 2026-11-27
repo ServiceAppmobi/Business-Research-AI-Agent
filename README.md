@@ -14,6 +14,8 @@ Multilingual business research reports powered by Google Gemini, Tavily web rese
 - SQLite order persistence and report status tracking
 - PDF report generation and download
 - Per-order bearer access tokens; only a SHA-256 token hash is stored in SQLite
+- Customer portal at `/portal` for order status, report preview, and PDF download
+- Optional transactional email delivery through Resend: secure order credentials after checkout and report-ready notification
 
 ## Research quality and limitations
 
@@ -29,6 +31,8 @@ Lead Finder returns research candidates based on public company-level snippets. 
 - `TAVILY_API_KEY`: Tavily web search API
 - `STRIPE_SECRET_KEY`: Stripe account API key
 - `STRIPE_WEBHOOK_SECRET`: signing secret for this app's Stripe webhook endpoint
+- `RESEND_API_KEY`: optional Resend API key for transactional email
+- `EMAIL_FROM`: verified sender identity configured in Resend
 - `PRODUCT_CURRENCY`: defaults to `pln`
 - `RESEARCH_REPORT_PRICE_MINOR`: defaults to `4900` (PLN 49.00)
 - `APP_BASE_URL`: public HTTPS origin of this app
@@ -36,7 +40,7 @@ Lead Finder returns research candidates based on public company-level snippets. 
 
 The same Stripe account API key can be used as in `working-ebook-agent` if it has the required permissions. The webhook signing secret is unique per endpoint: create a new endpoint for this service and set its new `whsec_` value. Stripe Connect destination transfers and platform fees are not copied because this product sells its own reports.
 
-Never commit API keys. Configure secrets only in the hosting provider's private environment settings. Use separate test and live keys.
+Never commit API keys. Configure secrets only in the hosting provider's private environment settings. For email, verify your sending domain in Resend before setting `RESEND_API_KEY` and `EMAIL_FROM`. Use separate test and live keys.
 
 ## Local setup
 
@@ -68,7 +72,7 @@ Open http://127.0.0.1:8000/docs.
 
 The checkout response includes a cryptographically random access token exactly once. The client must store it securely and send it in the HTTP Authorization header when requesting order status or the PDF. The server stores only its SHA-256 hash. Do not put this token in a public URL, analytics event, browser log, or support ticket.
 
-The payment success page intentionally does not reveal order status or report contents. A customer-facing web portal and secure email delivery are separate follow-up features.
+The payment success page intentionally does not reveal order status or report contents. Customers can use `/portal` with their order reference and access token. When Resend is configured, the checkout flow emails the access details and successful report generation sends a ready notification. The access token is sent only in the email body, never in a URL. If Resend is not configured or email delivery fails, checkout and report generation continue; the checkout API still returns the access token to the client.
 
 The SQLite startup migration adds the token-hash column to existing databases. Orders created before this security change have no token and cannot be accessed through the protected order endpoints; issue new orders or implement a verified recovery flow rather than bypassing authentication.
 
@@ -85,6 +89,7 @@ Create a new Stripe webhook endpoint pointing to `https://YOUR_HOST/webhook/stri
 ## Before public launch
 
 - Add rate limiting and abuse controls to public research endpoints
-- Add a customer portal and secure email delivery/recovery flow
+- Add email-based access recovery (requires a verified email ownership flow)
+- Add delivery retry/monitoring for transactional email
 - Add monitoring, privacy notices, retention controls, and a source verification workflow
 - Run end-to-end tests with Stripe test mode and configured Gemini/Tavily keys
