@@ -16,12 +16,13 @@ def search_web(company: str, industry: str, target_market: str, research_goal: s
     for query in queries:
         response = requests.post(
             "https://api.tavily.com/search",
+            headers={"Authorization": f"Bearer {settings.tavily_api_key}"},
             json={
-                "api_key": settings.tavily_api_key,
                 "query": query,
                 "search_depth": "advanced",
                 "topic": "general",
                 "max_results": 5,
+                "chunks_per_source": 2,
                 "include_answer": False,
                 "include_raw_content": False,
             },
