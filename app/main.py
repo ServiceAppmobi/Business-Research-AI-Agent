@@ -6,6 +6,9 @@ from io import BytesIO
 from xml.sax.saxutils import escape
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -19,7 +22,11 @@ from app.portal import CUSTOMER_PORTAL_HTML
 from app.email import send_order_access_email, send_report_ready_email
 from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed, hash_access_token, verify_order_access, claim_stripe_event, complete_stripe_event, fail_stripe_event
 
+limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
+
 app = FastAPI(title="AI Business Research Agent", description="Multilingual AI-assisted business research reports with Stripe Checkout.", version="0.2.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 @app.on_event("startup")
 def startup():
@@ -38,22 +45,24 @@ def languages():
     return SUPPORTED_LANGUAGES
 
 @app.post("/api/v1/research", response_model=ResearchReport)
-def research(request: ResearchRequest):
-    if request.language not in SUPPORTED_LANGUAGES:
+@limiter.limit("5/minute")
+def research(http_request: Request, payload: ResearchRequest):
+    if payload.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language code")
     try:
-        return generate_report(request)
+        return generate_report(payload)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception:
         raise HTTPException(status_code=502, detail="Report generation failed")
 
 @app.post("/api/v1/leads/find", response_model=LeadFinderResponse)
-def find_leads(request: LeadFinderRequest):
-    if request.language not in SUPPORTED_LANGUAGES:
+@limiter.limit("5/minute")
+def find_leads(http_request: Request, payload: LeadFinderRequest):
+    if payload.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language code")
     try:
-        return find_business_leads(request)
+        return find_business_leads(payload)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception:
@@ -61,7 +70,8 @@ def find_leads(request: LeadFinderRequest):
 
 
 @app.post("/api/v1/checkout", response_model=CheckoutResponse)
-def checkout(payload: CheckoutRequest):
+@limiter.limit("10/minute")
+def checkout(http_request: Request, payload: CheckoutRequest):
     if payload.research.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language code")
     order_id = str(uuid.uuid4())
