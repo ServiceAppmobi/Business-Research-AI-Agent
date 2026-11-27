@@ -87,3 +87,22 @@ def test_checkout_requires_transactional_email_configuration(monkeypatch):
     })
     assert response.status_code == 503
     assert "email is not configured" in response.json()["detail"].lower()
+
+
+def test_internal_email_test_rejects_invalid_token(monkeypatch):
+    monkeypatch.setattr(settings, "email_test_token", "expected-token")
+    response = client.get("/internal/test-email", params={"token": "wrong-token"})
+    assert response.status_code == 404
+
+
+def test_internal_email_test_sends_only_to_configured_test_mailbox(monkeypatch):
+    from app import main as main_module
+    main_module.limiter._storage.reset()
+    monkeypatch.setattr(settings, "email_test_token", "expected-token")
+    monkeypatch.setattr(settings, "resend_api_key", "test-key")
+    monkeypatch.setattr(settings, "email_from", "Business Research AI <reports@serviceapp.mobi>")
+    sent = []
+    monkeypatch.setattr(main_module, "send_test_email", lambda recipient: sent.append(recipient) or True)
+    response = client.get("/internal/test-email", params={"token": "expected-token"})
+    assert response.status_code == 200
+    assert sent == ["reports@serviceapp.mobi"]
