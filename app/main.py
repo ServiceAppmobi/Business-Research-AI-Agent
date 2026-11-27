@@ -16,6 +16,7 @@ from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event
 from app.schemas import CheckoutRequest, CheckoutResponse, ResearchRequest, ResearchReport, LeadFinderRequest, LeadFinderResponse
 from app.portal import CUSTOMER_PORTAL_HTML
+from app.email import send_order_access_email, send_report_ready_email
 from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed, hash_access_token, verify_order_access, claim_stripe_event, complete_stripe_event, fail_stripe_event
 
 app = FastAPI(title="AI Business Research Agent", description="Multilingual AI-assisted business research reports with Stripe Checkout.", version="0.2.0")
@@ -69,6 +70,7 @@ def checkout(payload: CheckoutRequest):
     try:
         session = create_checkout_session(order_id, str(payload.customer_email))
         attach_checkout(order_id, session.id)
+        send_order_access_email(str(payload.customer_email), order_id, access_token)
         return CheckoutResponse(order_id=order_id, checkout_url=session.url, access_token=access_token)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
@@ -125,6 +127,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(defaul
         research_request = ResearchRequest.model_validate(json.loads(order["request_json"]))
         report = await asyncio.to_thread(generate_report, research_request)
         save_report(order_id, report.model_dump())
+        send_report_ready_email(order["customer_email"], order_id)
     except Exception:
         mark_failed(order_id)
         fail_stripe_event(event_id)
