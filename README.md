@@ -10,7 +10,7 @@ Multilingual business research reports powered by Google Gemini, Tavily web rese
 - Gemini synthesis with source IDs, uncertainty handling, and separation of facts from assumptions
 - B2B Lead Finder using public company-level web sources
 - Stripe Checkout for one-time report purchases
-- Signed Stripe webhook handling
+- Signed Stripe webhook handling with persistent event-ID idempotency and retry recovery
 - SQLite order persistence and report status tracking
 - PDF report generation and download
 - Per-order bearer access tokens; only a SHA-256 token hash is stored in SQLite
@@ -86,6 +86,5 @@ Create a new Stripe webhook endpoint pointing to `https://YOUR_HOST/webhook/stri
 
 - Add rate limiting and abuse controls to public research endpoints
 - Add a customer portal and secure email delivery/recovery flow
-- Add webhook event-ID persistence for full Stripe event idempotency
 - Add monitoring, privacy notices, retention controls, and a source verification workflow
 - Run end-to-end tests with Stripe test mode and configured Gemini/Tavily keys
