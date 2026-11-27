@@ -14,7 +14,8 @@ def search_web(company: str, industry: str, target_market: str, research_goal: s
     collected = []
     seen = set()
     for query in queries:
-        response = requests.post(
+        try:
+            response = requests.post(
             "https://api.tavily.com/search",
             headers={"Authorization": f"Bearer {settings.tavily_api_key}"},
             json={
@@ -26,10 +27,12 @@ def search_web(company: str, industry: str, target_market: str, research_goal: s
                 "include_answer": False,
                 "include_raw_content": False,
             },
-            timeout=25,
-        )
-        response.raise_for_status()
-        payload = response.json()
+                timeout=25,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException:
+            continue
         for item in payload.get("results", []):
             url = item.get("url", "")
             if not url or url in seen:
