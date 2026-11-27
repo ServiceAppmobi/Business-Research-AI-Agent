@@ -15,6 +15,7 @@ from app.agent import generate_report, find_business_leads
 from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event
 from app.schemas import CheckoutRequest, CheckoutResponse, ResearchRequest, ResearchReport, LeadFinderRequest, LeadFinderResponse
+from app.portal import CUSTOMER_PORTAL_HTML
 from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed, hash_access_token, verify_order_access, claim_stripe_event, complete_stripe_event, fail_stripe_event
 
 app = FastAPI(title="AI Business Research Agent", description="Multilingual AI-assisted business research reports with Stripe Checkout.", version="0.2.0")
@@ -22,6 +23,10 @@ app = FastAPI(title="AI Business Research Agent", description="Multilingual AI-a
 @app.on_event("startup")
 def startup():
     init_db()
+
+@app.get("/portal", response_class=HTMLResponse)
+def customer_portal():
+    return HTMLResponse(CUSTOMER_PORTAL_HTML)
 
 @app.get("/health")
 def health():
