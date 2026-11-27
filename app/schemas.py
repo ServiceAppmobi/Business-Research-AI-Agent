@@ -35,3 +35,25 @@ class ResearchReport(BaseModel):
     citations: list[SourceReference] = Field(default_factory=list)
     research_method: str
     disclaimer: str
+
+class LeadFinderRequest(BaseModel):
+    industry: str = Field(..., min_length=2, max_length=200)
+    target_market: str = Field(..., min_length=2, max_length=200)
+    ideal_customer: str = Field(..., min_length=5, max_length=2000)
+    language: str = "en"
+    max_results: int = Field(default=10, ge=1, le=20)
+
+
+class BusinessLead(BaseModel):
+    company_name: str
+    website: str = ""
+    description: str
+    fit_rationale: str
+    public_signals: list[str] = Field(default_factory=list)
+    source_urls: list[str] = Field(default_factory=list)
+
+
+class LeadFinderResponse(BaseModel):
+    leads: list[BusinessLead]
+    research_method: str
+    disclaimer: str
