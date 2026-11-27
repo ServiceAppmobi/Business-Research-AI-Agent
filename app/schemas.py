@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 
 class ResearchRequest(BaseModel):
@@ -9,6 +9,14 @@ class ResearchRequest(BaseModel):
     language: str = "en"
     include_competitors: bool = True
     additional_context: Optional[str] = Field(default=None, max_length=5000)
+
+class CheckoutRequest(BaseModel):
+    customer_email: EmailStr
+    research: ResearchRequest
+
+class CheckoutResponse(BaseModel):
+    order_id: str
+    checkout_url: str
 
 class ResearchReport(BaseModel):
     executive_summary: str
