@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 RESEND_API_URL = "https://api.resend.com/emails"
 
 
+def email_is_configured() -> bool:
+    return bool(settings.resend_api_key and settings.email_from)
+
+
 def _send_email(to: str, subject: str, html: str) -> bool:
     if not settings.resend_api_key or not settings.email_from:
         logger.info("Email delivery skipped: Resend is not configured")
