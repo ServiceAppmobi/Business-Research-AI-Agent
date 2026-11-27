@@ -46,7 +46,7 @@ def languages():
 
 @app.post("/api/v1/research", response_model=ResearchReport)
 @limiter.limit("5/minute")
-def research(http_request: Request, payload: ResearchRequest):
+def research(request: Request, payload: ResearchRequest):
     if payload.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language code")
     try:
@@ -58,7 +58,7 @@ def research(http_request: Request, payload: ResearchRequest):
 
 @app.post("/api/v1/leads/find", response_model=LeadFinderResponse)
 @limiter.limit("5/minute")
-def find_leads(http_request: Request, payload: LeadFinderRequest):
+def find_leads(request: Request, payload: LeadFinderRequest):
     if payload.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language code")
     try:
@@ -71,7 +71,7 @@ def find_leads(http_request: Request, payload: LeadFinderRequest):
 
 @app.post("/api/v1/checkout", response_model=CheckoutResponse)
 @limiter.limit("10/minute")
-def checkout(http_request: Request, payload: CheckoutRequest):
+def checkout(request: Request, payload: CheckoutRequest):
     if payload.research.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language code")
     order_id = str(uuid.uuid4())
