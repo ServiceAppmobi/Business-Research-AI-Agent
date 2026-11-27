@@ -10,11 +10,11 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from app.agent import generate_report
+from app.agent import generate_report, find_business_leads
 from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event
 from app.schemas import CheckoutRequest, CheckoutResponse, ResearchRequest, ResearchReport, LeadFinderRequest, LeadFinderResponse
-from app.agent import find_business_leads\nfrom app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed
+from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed
 
 app = FastAPI(title="AI Business Research Agent", description="Multilingual AI-assisted business research reports with Stripe Checkout.", version="0.2.0")
 
