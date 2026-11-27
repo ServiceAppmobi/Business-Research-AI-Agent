@@ -22,3 +22,30 @@ def test_research_rejects_unsupported_language():
         "language": "xx"
     })
     assert response.status_code == 400
+
+
+def test_pricing_endpoint_returns_three_pln_tiers():
+    response = client.get("/api/v1/pricing")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["currency"] == "PLN"
+    assert {p["id"]: p["price"] for p in data["plans"]} == {
+        "basic": 49.0,
+        "professional": 99.0,
+        "premium": 199.0,
+    }
+
+
+def test_checkout_rejects_unknown_report_tier():
+    response = client.post("/api/v1/checkout", json={
+        "customer_email": "buyer@example.com",
+        "plan": "gold",
+        "research": {
+            "company": "Example Ltd",
+            "industry": "Software",
+            "target_market": "Poland",
+            "research_goal": "Assess market entry",
+            "language": "en"
+        }
+    })
+    assert response.status_code == 422
