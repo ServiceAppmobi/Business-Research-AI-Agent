@@ -8,7 +8,6 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     resend_api_key: str = ""
     email_from: str = ""
-    email_test_token: str = ""
     product_currency: str = "pln"
     research_report_price_minor: int = 4900
     app_base_url: str = "http://localhost:8000"
