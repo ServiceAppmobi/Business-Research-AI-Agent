@@ -93,7 +93,7 @@ Create a new Stripe webhook endpoint pointing to `https://YOUR_HOST/webhook/stri
 
 ## Before public launch
 
-- Add rate limiting and abuse controls to public research endpoints
+- Review rate-limit thresholds under real traffic and add a shared Redis-backed limiter before scaling to multiple instances
 - Add email-based access recovery (requires a verified email ownership flow)
 - Add delivery retry/monitoring for transactional email
 - Add monitoring, privacy notices, retention controls, and a source verification workflow
