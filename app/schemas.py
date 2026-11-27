@@ -17,6 +17,7 @@ class CheckoutRequest(BaseModel):
 class CheckoutResponse(BaseModel):
     order_id: str
     checkout_url: str
+    access_token: str
 
 class SourceReference(BaseModel):
     title: str
