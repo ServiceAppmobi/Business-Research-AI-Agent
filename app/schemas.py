@@ -32,6 +32,6 @@ class ResearchReport(BaseModel):
     competitor_landscape: list[str]
     recommended_next_steps: list[str]
     assumptions_and_limitations: list[str]
-    citations: list[SourceReference] = []
+    citations: list[SourceReference] = Field(default_factory=list)
     research_method: str
     disclaimer: str
