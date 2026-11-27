@@ -97,6 +97,7 @@ def test_internal_email_test_rejects_invalid_token(monkeypatch):
 
 def test_internal_email_test_sends_only_to_configured_test_mailbox(monkeypatch):
     from app import main as main_module
+    main_module.limiter._storage.reset()
     monkeypatch.setattr(settings, "email_test_token", "expected-token")
     monkeypatch.setattr(settings, "resend_api_key", "test-key")
     monkeypatch.setattr(settings, "email_from", "Business Research AI <reports@serviceapp.mobi>")
