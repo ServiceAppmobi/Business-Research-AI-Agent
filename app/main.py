@@ -19,7 +19,8 @@ from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event, REPORT_PLANS
 from app.schemas import CheckoutRequest, CheckoutResponse, ResearchRequest, ResearchReport, LeadFinderRequest, LeadFinderResponse
 from app.portal import CUSTOMER_PORTAL_HTML
-from app.email import send_order_access_email, send_report_ready_email
+from app.email import email_is_configured, send_order_access_email, send_report_ready_email
+from app.config import settings
 from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed, hash_access_token, verify_order_access, claim_stripe_event, complete_stripe_event, fail_stripe_event
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
@@ -31,6 +32,14 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 @app.on_event("startup")
 def startup():
     init_db()
+
+def _require_direct_ai_api_enabled():
+    if not settings.allow_direct_ai_api:
+        raise HTTPException(
+            status_code=403,
+            detail="Direct AI endpoints are disabled. Use the paid checkout workflow.",
+        )
+
 
 @app.get("/portal", response_class=HTMLResponse)
 def customer_portal():
@@ -57,6 +66,7 @@ def languages():
 @app.post("/api/v1/research", response_model=ResearchReport)
 @limiter.limit("5/minute")
 def research(request: Request, payload: ResearchRequest):
+    _require_direct_ai_api_enabled()
     if payload.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language code")
     try:
@@ -69,6 +79,7 @@ def research(request: Request, payload: ResearchRequest):
 @app.post("/api/v1/leads/find", response_model=LeadFinderResponse)
 @limiter.limit("5/minute")
 def find_leads(request: Request, payload: LeadFinderRequest):
+    _require_direct_ai_api_enabled()
     if payload.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language code")
     try:
@@ -84,15 +95,21 @@ def find_leads(request: Request, payload: LeadFinderRequest):
 def checkout(request: Request, payload: CheckoutRequest):
     if payload.research.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language code")
+    if not email_is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Transactional email is not configured. Checkout is temporarily unavailable.",
+        )
     order_id = str(uuid.uuid4())
     access_token = secrets.token_urlsafe(32)
     order_data = payload.research.model_dump()
     order_data["_report_plan"] = payload.plan
     create_order(order_id, str(payload.customer_email), order_data, hash_access_token(access_token))
     try:
+        if not send_order_access_email(str(payload.customer_email), order_id, access_token):
+            raise RuntimeError("Could not deliver secure order access email; checkout was not created")
         session = create_checkout_session(order_id, str(payload.customer_email), payload.plan)
         attach_checkout(order_id, session.id)
-        send_order_access_email(str(payload.customer_email), order_id, access_token)
         return CheckoutResponse(order_id=order_id, checkout_url=session.url, access_token=access_token)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
