@@ -36,11 +36,6 @@ def _send_email(to: str, subject: str, html: str, attachments: list[dict] | None
         return False
 
 
-def send_test_email(to: str) -> bool:
-    html = """<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#10243d"><h2>Business Research AI — email test</h2><p>This is a test message confirming that the application can send transactional email through Resend.</p><p>Sender configuration and delivery path are being checked. No order or payment was created.</p></div>"""
-    return _send_email(to, "Business Research AI — email delivery test", html)
-
-
 def send_order_access_email(to: str, order_id: str, access_token: str) -> bool:
     portal_url = urljoin(settings.app_base_url.rstrip("/") + "/", "portal")
     html = f"""
