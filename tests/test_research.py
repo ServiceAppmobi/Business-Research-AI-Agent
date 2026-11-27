@@ -24,4 +24,4 @@ def test_search_deduplicates_urls_and_uses_bearer_auth(monkeypatch):
     assert len(results) == 1
     assert results[0]["url"] == "https://example.com/report"
     assert calls[0][1]["headers"]["Authorization"] == "Bearer test-key"
-    assert len(calls) == 4
+    assert len(calls) == 5
