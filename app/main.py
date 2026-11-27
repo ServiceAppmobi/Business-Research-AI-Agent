@@ -100,9 +100,17 @@ def payment_success(order_id: str):
     order = get_order(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    status = order["status"]
     return f"""<!doctype html><html><head><meta charset="utf-8"><title>Payment received</title></head>
     <body style="font-family:system-ui;max-width:680px;margin:60px auto;padding:24px">
     <h1>Payment received</h1><p>Your research report is being prepared.</p>
-    <p>Order status: <strong>{order["status"]}</strong></p>
+    <p>Order status: <strong>{status}</strong></p>
     <p>Check your report status at <code>/api/v1/orders/{order_id}</code>.</p>
+    </body></html>"""
+
+@app.get("/payment/cancel", response_class=HTMLResponse)
+def payment_cancel():
+    return """<!doctype html><html><head><meta charset="utf-8"><title>Payment cancelled</title></head>
+    <body style="font-family:system-ui;max-width:680px;margin:60px auto;padding:24px">
+    <h1>Payment cancelled</h1><p>No payment was taken. You can return and try again.</p>
     </body></html>"""
