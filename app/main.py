@@ -1,28 +1,25 @@
 import asyncio
 import json
+import logging
 import secrets
 import uuid
 from io import BytesIO
-from xml.sax.saxutils import escape
-from fastapi import FastAPI, Header, HTTPException, Request, Query
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from app.agent import generate_report, find_business_leads
 from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event, REPORT_PLANS
 from app.schemas import CheckoutRequest, CheckoutResponse, ResearchRequest, ResearchReport, LeadFinderRequest, LeadFinderResponse
 from app.portal import CUSTOMER_PORTAL_HTML
-from app.email import email_is_configured, send_order_access_email, send_report_ready_email, send_test_email
+from app.pdf import build_report_pdf
+from app.email import email_is_configured, send_order_access_email, send_report_ready_email
 from app.config import settings
 from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed, hash_access_token, verify_order_access, claim_stripe_event, complete_stripe_event, fail_stripe_event
 
+logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
 
 app = FastAPI(title="AI Business Research Agent", description="Multilingual AI-assisted business research reports with Stripe Checkout.", version="0.2.0")
@@ -39,18 +36,6 @@ def _require_direct_ai_api_enabled():
             status_code=403,
             detail="Direct AI endpoints are disabled. Use the paid checkout workflow.",
         )
-
-
-@app.get("/internal/test-email")
-@limiter.limit("1/minute")
-def internal_test_email(request: Request, token: str = Query(default="")):
-    if not settings.email_test_token or not secrets.compare_digest(token, settings.email_test_token):
-        raise HTTPException(status_code=404, detail="Not found")
-    if not email_is_configured():
-        raise HTTPException(status_code=503, detail="Transactional email is not configured")
-    if not send_test_email("reports@serviceapp.mobi"):
-        raise HTTPException(status_code=502, detail="Resend rejected or could not deliver the test email")
-    return {"status": "sent", "recipient": "reports@serviceapp.mobi", "provider": "Resend"}
 
 
 @app.get("/portal", response_class=HTMLResponse)
@@ -182,7 +167,13 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(defaul
         report_data = report.model_dump()
         report_data["report_tier"] = report_plan
         save_report(order_id, report_data)
-        send_report_ready_email(order["customer_email"], order_id)
+        try:
+            report_pdf = build_report_pdf(report_data, order_id)
+            if not send_report_ready_email(order["customer_email"], order_id, report_pdf):
+                logger.error("Report email delivery failed for order %s; report remains available in the secure portal", order_id)
+        except Exception:
+            # A notification failure must not invalidate an already generated and stored paid report.
+            logger.exception("Could not prepare or send report email for order %s", order_id)
     except Exception:
         mark_failed(order_id)
         fail_stripe_event(event_id)
@@ -234,52 +225,8 @@ def download_report_pdf(order_id: str, authorization: str = Header(default="")):
         raise HTTPException(status_code=409, detail="Report is not ready yet")
 
     report = json.loads(order["report_json"])
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(
-        buffer, pagesize=A4, rightMargin=18*mm, leftMargin=18*mm,
-        topMargin=18*mm, bottomMargin=18*mm, title="AI Business Research Report"
-    )
-    styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="SectionHeading", parent=styles["Heading2"], spaceBefore=12, spaceAfter=6))
-    story = [Paragraph("AI Business Research Report", styles["Title"]), Spacer(1, 8)]
-    sections = [
-        ("Executive Summary", "executive_summary"),
-        ("Market Overview", "market_overview"),
-        ("Target Customers", "target_customers"),
-        ("Opportunities", "opportunities"),
-        ("Risks", "risks"),
-        ("Competitor Landscape", "competitor_landscape"),
-        ("Recommended Next Steps", "recommended_next_steps"),
-        ("Assumptions and Limitations", "assumptions_and_limitations"),
-    ]
-    for heading, key in sections:
-        value = report.get(key, "")
-        if not value:
-            continue
-        story.append(Paragraph(escape(heading), styles["SectionHeading"]))
-        if isinstance(value, list):
-            for item in value:
-                story.append(Paragraph("• " + escape(str(item)), styles["BodyText"]))
-                story.append(Spacer(1, 3))
-        else:
-            story.append(Paragraph(escape(str(value)).replace("\\n", "<br/>"), styles["BodyText"]))
-    citations = report.get("citations", [])
-    if citations:
-        story.append(Paragraph("Sources", styles["SectionHeading"]))
-        for index, source in enumerate(citations, start=1):
-            title = escape(str(source.get("title", "Source")))
-            url = escape(str(source.get("url", "")))
-            snippet = escape(str(source.get("snippet", "")))
-            story.append(Paragraph(f"[S{index}] <link href=\"{url}\" color=\"blue\">{title}</link>", styles["BodyText"]))
-            if snippet:
-                story.append(Paragraph(snippet, styles["Italic"]))
-            story.append(Spacer(1, 5))
-    story.append(Spacer(1, 12))
-    story.append(Paragraph(escape(str(report.get("research_method", ""))), styles["Italic"]))
-    story.append(Paragraph(escape(str(report.get("disclaimer", ""))), styles["Italic"]))
-    doc.build(story)
-    buffer.seek(0)
+    pdf_bytes = build_report_pdf(report, order_id)
     return StreamingResponse(
-        buffer, media_type="application/pdf",
+        BytesIO(pdf_bytes), media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="business-research-{order_id}.pdf"'}
     )

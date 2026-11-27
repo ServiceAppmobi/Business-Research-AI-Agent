@@ -34,3 +34,18 @@ def test_pdf_endpoint_returns_pdf_for_completed_order(monkeypatch):
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
     assert response.content.startswith(b"%PDF")
+
+
+def test_shared_pdf_renderer_builds_report_attachment():
+    from app.pdf import build_report_pdf
+
+    report = {
+        "executive_summary": "Market entry opportunity",
+        "target_customers": ["Small businesses"],
+        "citations": [{"title": "Example source", "url": "https://example.com", "snippet": "Evidence"}],
+        "research_method": "Test fixture",
+        "disclaimer": "For information only",
+    }
+    pdf = build_report_pdf(report, "order-456")
+    assert pdf.startswith(b"%PDF")
+    assert len(pdf) > 500
