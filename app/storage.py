@@ -77,3 +77,11 @@ def mark_failed(order_id: str):
                WHERE id=? AND status='generating'""",
             (order_id,),
         )
+
+def mark_payment_failed(order_id: str):
+    with _connect() as conn:
+        conn.execute(
+            """UPDATE research_orders SET status='payment_failed', updated_at=CURRENT_TIMESTAMP
+               WHERE id=? AND status='pending_payment'""",
+            (order_id,),
+        )
