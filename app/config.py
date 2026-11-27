@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     app_base_url: str = "http://localhost:8000"
     database_path: str = "./data/research_orders.sqlite3"
     app_env: str = "development"
+    allow_direct_ai_api: bool = False
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
