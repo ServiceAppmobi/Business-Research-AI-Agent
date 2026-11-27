@@ -1,3 +1,5 @@
+import base64
+
 from app import email
 from app.config import settings
 
@@ -24,6 +26,31 @@ def test_access_email_uses_resend_and_keeps_token_out_of_url(monkeypatch):
     assert captured["json"]["to"] == ["buyer@example.com"]
     assert "secret-token" in captured["json"]["html"]
     assert "secret-token" not in captured["json"]["html"].split('href="')[1].split('"')[0]
+
+
+def test_report_ready_email_attaches_generated_pdf(monkeypatch):
+    monkeypatch.setattr(settings, "resend_api_key", "test-resend-key")
+    monkeypatch.setattr(settings, "email_from", "Business Research AI <reports@serviceapp.mobi>")
+    monkeypatch.setattr(settings, "app_base_url", "https://business-research.example.com")
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return FakeResponse()
+
+    pdf_bytes = b"%PDF-1.4 test report"
+    monkeypatch.setattr(email.requests, "post", fake_post)
+
+    assert email.send_report_ready_email("buyer@example.com", "order-123", pdf_bytes)
+    payload = captured["json"]
+    assert captured["url"] == email.RESEND_API_URL
+    assert payload["to"] == ["buyer@example.com"]
+    assert "attached to this email" in payload["html"]
+    assert payload["attachments"] == [{
+        "filename": "business-research-order-123.pdf",
+        "content": base64.b64encode(pdf_bytes).decode("ascii"),
+    }]
 
 
 def test_email_is_skipped_when_not_configured(monkeypatch):
