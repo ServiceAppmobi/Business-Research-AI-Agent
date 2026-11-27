@@ -15,8 +15,8 @@ def generate_report(request: ResearchRequest) -> ResearchReport:
     language_name = SUPPORTED_LANGUAGES[request.language]
     client = genai.Client(api_key=settings.gemini_api_key)
 
-    source_context = "\\n".join(
-        f"[S{i}] {source['title']} | {source['url']}\\n{source['snippet']}"
+    source_context = "\n".join(
+        f"[S{i}] {source['title']} | {source['url']}\n{source['snippet']}"
         for i, source in enumerate(sources, start=1)
     ) or "No live web sources were retrieved. Do not present current market facts as verified."
 
