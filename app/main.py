@@ -7,7 +7,7 @@ from app.agent import generate_report
 from app.languages import SUPPORTED_LANGUAGES
 from app.payments import create_checkout_session, construct_webhook_event
 from app.schemas import CheckoutRequest, CheckoutResponse, ResearchRequest, ResearchReport
-from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, claim_generation, save_report, mark_failed
+from app.storage import init_db, create_order, attach_checkout, get_order, mark_paid, mark_payment_failed, claim_generation, save_report, mark_failed
 
 app = FastAPI(title="AI Business Research Agent", description="Multilingual AI-assisted business research reports with Stripe Checkout.", version="0.2.0")
 
@@ -59,10 +59,15 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(defaul
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid Stripe webhook signature or payload")
 
+    session = event["data"]["object"]
+    if event["type"] == "checkout.session.async_payment_failed":
+        failed_order_id = (session.get("metadata") or {}).get("order_id") or session.get("client_reference_id")
+        if failed_order_id:
+            mark_payment_failed(failed_order_id)
+        return {"status": "payment_failed"}
     if event["type"] not in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         return {"status": "ignored"}
 
-    session = event["data"]["object"]
     if session.get("payment_status") != "paid":
         return {"status": "awaiting_payment"}
 
