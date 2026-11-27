@@ -11,4 +11,7 @@ def test_limiter_is_registered_on_app():
 
 def test_public_api_rate_limit_configuration():
     assert limiter._default_limits
-    assert any(str(limit) == "120 per 1 minute" for limit in limiter._default_limits)
+    assert any(
+        limit.amount == 120 and limit.granularity.name == "minute"
+        for limit in limiter._default_limits
+    )
